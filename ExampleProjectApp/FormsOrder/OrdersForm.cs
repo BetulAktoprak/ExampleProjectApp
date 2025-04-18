@@ -13,6 +13,7 @@ namespace ExampleProjectApp
         private void btnCreateOrder_Click(object sender, EventArgs e)
         {
             AddOrderForm addOrderForm = new AddOrderForm(null);
+            addOrderForm.OrderChanged += (s, args) => OrderList();
             addOrderForm.Show();
         }
 
@@ -52,9 +53,46 @@ namespace ExampleProjectApp
 
         private void dgvOrderList_DoubleClick(object sender, EventArgs e)
         {
-            // TODO: satırda seçilen id
-            AddOrderForm addOrderForm = new AddOrderForm(2);
-            addOrderForm.Show();
+            if (dgvOrderList.CurrentRow != null)
+            {
+                int orderId = Convert.ToInt32(dgvOrderList.CurrentRow.Cells["Id"].Value);
+                AddOrderForm addOrderForm = new AddOrderForm(orderId);
+                addOrderForm.OrderChanged += (s, args) => OrderList();
+                addOrderForm.Show();
+            }
+        }
+
+        private void dgvOrderList_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Delete && dgvOrderList.CurrentRow != null)
+            {
+                int selectedRowIndex = dgvOrderList.CurrentRow.Index;
+                if (selectedRowIndex >= 0)
+                {
+                    var result = MessageBox.Show("Bu siparişi silmek istediğinize emin misiniz?", "Onay", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    if (result == DialogResult.Yes)
+                    {
+                        int orderId = Convert.ToInt32(dgvOrderList.Rows[selectedRowIndex].Cells["Id"].Value);
+
+                        using (var context = new AppDbContext())
+                        {
+                            var order = context.Orders
+                                .Include(o => o.OrderDetails)
+                                .FirstOrDefault(o => o.Id == orderId);
+
+                            if (order != null)
+                            {
+                                context.OrderDetails.RemoveRange(order.OrderDetails); 
+                                context.Orders.Remove(order); 
+                                context.SaveChanges();
+
+                                MessageBox.Show("Sipariş başarıyla silindi.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                OrderList(); 
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

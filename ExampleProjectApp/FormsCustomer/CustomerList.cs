@@ -38,6 +38,7 @@ namespace ExampleProjectApp
         private void btnCreateCustomer_Click(object sender, EventArgs e)
         {
             AddCustomerForm addCustomerForm = new AddCustomerForm();
+            addCustomerForm.CustomerAdded += (s, ev) => LoadCustomer();
             addCustomerForm.Show();
         }
 
@@ -47,6 +48,7 @@ namespace ExampleProjectApp
             {
                 int customerId = Convert.ToInt32(dgvCustomerList.Rows[e.RowIndex].Cells["Id"].Value);
                 CustomerInformationForm customerInformationForm = new CustomerInformationForm(customerId);
+                customerInformationForm.CustomerUpdated += (s, ev) => LoadCustomer();
                 customerInformationForm.Show();
             }
         }

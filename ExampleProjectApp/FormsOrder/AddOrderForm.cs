@@ -1,11 +1,14 @@
 ﻿using System.Globalization;
 using ExampleProjectApp.Context;
 using ExampleProjectApp.Entities;
+using ExampleProjectApp.Validations;
+using Microsoft.EntityFrameworkCore;
 
 namespace ExampleProjectApp
 {
     public partial class AddOrderForm : Form
     {
+        public event EventHandler? OrderChanged;
         private int? _id;
         public AddOrderForm(int? id = null)
         {
@@ -34,10 +37,38 @@ namespace ExampleProjectApp
 
                 if (products.Count > 0)
                     cmbProducts.SelectedIndex = 0;
-            }
 
-            lblKdv.Text = "%18";
-            dtpSevkTarihi.MinDate = DateTime.Today;
+                if (_id.HasValue)
+                {
+                    var order = context.Orders
+                        .Include(o => o.OrderDetails)
+                        .FirstOrDefault(o => o.Id == _id.Value);
+
+                    if (order != null)
+                    {
+                        cmbCustomer.SelectedValue = order.CustomerId;
+                        dtpSevkTarihi.Value = (DateTime)order.ShipmentDate!;
+
+                        orderDetails = order.OrderDetails
+                            .Select(d => new OrderDetail
+                            {
+                                ProductId = d.ProductId,
+                                Quantity = d.Quantity,
+                                UnitPrice = d.UnitPrice,
+                                KDV = d.KDV,
+                                TotalAmount = d.TotalAmount
+                            })
+                            .ToList();
+
+                        RefreshGrid();
+                    }
+                }
+
+                lblKdv.Text = "%18";
+                dtpSevkTarihi.MinDate = DateTime.Today;
+                cmbProducts_SelectedIndexChanged(cmbProducts, EventArgs.Empty);
+
+            }
         }
 
         private void btnAdd_Click(object sender, EventArgs e)
@@ -50,20 +81,40 @@ namespace ExampleProjectApp
 
             using (var context = new AppDbContext())
             {
-                var order = new Order
+                if (_id.HasValue)
                 {
-                    CustomerId = (int)cmbCustomer.SelectedValue!,
-                    ShipmentDate = dtpSevkTarihi.Value,
-                    FisNo = new Random().Next(1000, 9999),
-                    CreatedDate = DateTime.UtcNow,
-                    UpdatedDate = DateTime.UtcNow,
-                    OrderDetails = orderDetails
-                };
+                    var existingOrder = context.Orders
+                        .Include(o => o.OrderDetails)
+                        .FirstOrDefault(o => o.Id == _id.Value);
 
-                context.Orders.Add(order);
+                    if (existingOrder != null)
+                    {
+                        existingOrder.CustomerId = (int)cmbCustomer.SelectedValue!;
+                        existingOrder.ShipmentDate = dtpSevkTarihi.Value;
+                        existingOrder.UpdatedDate = DateTime.UtcNow;
+
+                        context.OrderDetails.RemoveRange(existingOrder.OrderDetails);
+                        existingOrder.OrderDetails = orderDetails;
+                    }
+                }
+                else
+                {
+                    var order = new Order
+                    {
+                        CustomerId = (int)cmbCustomer.SelectedValue!,
+                        ShipmentDate = dtpSevkTarihi.Value,
+                        FisNo = new Random().Next(1000, 9999),
+                        CreatedDate = DateTime.UtcNow,
+                        UpdatedDate = DateTime.UtcNow,
+                        OrderDetails = orderDetails
+                    };
+
+                    context.Orders.Add(order);
+                }
                 context.SaveChanges();
 
                 MessageBox.Show("Sipariş başarıyla kaydedildi.");
+                OrderChanged?.Invoke(this, EventArgs.Empty);
                 orderDetails.Clear();
                 RefreshGrid();
             }
@@ -114,6 +165,16 @@ namespace ExampleProjectApp
                 KDV = kdv,
                 TotalAmount = (decimal)(nmrAdet.Value * unitPrice)
             };
+
+            var validator = new OrderDetailValidator();
+            var result = validator.Validate(detail);
+
+            if (!result.IsValid)
+            {
+                var errorMessage = string.Join("\n", result.Errors.Select(err => err.ErrorMessage));
+                MessageBox.Show(errorMessage, "Doğrulama Hatası", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
             orderDetails.Add(detail);
             RefreshGrid();

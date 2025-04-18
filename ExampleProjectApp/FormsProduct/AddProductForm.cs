@@ -1,18 +1,40 @@
 ﻿using ExampleProjectApp.Context;
 using ExampleProjectApp.Entities;
+using ExampleProjectApp.Validations;
 
 namespace ExampleProjectApp.FormsProduct
 {
     public partial class AddProductForm : Form
     {
-        public AddProductForm()
+        public event EventHandler? ProductChanged;
+        private readonly int? _productId;
+        public AddProductForm(int? productId = null)
         {
             InitializeComponent();
+            _productId = productId;
+            this.Load += AddProductForm_Load!;
         }
 
         private void AddProductForm_Load(object sender, EventArgs e)
         {
+            if (_productId.HasValue)
+            {
+                using (var context = new AppDbContext())
+                {
+                    var product = context.Products.FirstOrDefault(p => p.Id == _productId.Value);
 
+                    if (product != null)
+                    {
+                        txtAd.Text = product.ProductName;
+                        lblBarcode.Text = product.Barcode;
+                        txtDescription.Text = product.Description;
+                        nmrStock.Text = product.Stock.ToString();
+                        nmrUnitPrice.Text = product.UnitPrice.ToString("F2");
+                        nmrMetre.Text = product.Metre.ToString();
+                        nmrKilo.Text = product.Kilo.ToString();
+                    }
+                }
+            }
         }
         private string CreateBarcode()
         {
@@ -30,35 +52,44 @@ namespace ExampleProjectApp.FormsProduct
             {
                 using (var context = new AppDbContext())
                 {
-                    var product = new Product
-                    {
-                        ProductName = txtAd.Text,
-                        Description = txtDescription.Text,
-                        UnitPrice = nmrUnitPrice.Value,
-                        Stock = (int)nmrStock.Value,
-                        Metre = (double)nmrMetre.Value,
-                        Kilo = (double)nmrKilo.Value,
-                        Barcode = lblBarcode.Text
-                    };
 
-                    if (string.IsNullOrWhiteSpace(txtAd.Text) || nmrUnitPrice.Value <= 0 || nmrStock.Value < 0)
+                    Product product;
+
+                    if (_productId.HasValue)
                     {
-                        MessageBox.Show("Lütfen geçerli ürün bilgilerini giriniz.");
+                        product = context.Products.FirstOrDefault(p => p.Id == _productId.Value) ?? new Product();
+                    }
+                    else
+                    {
+                        product = new Product();
+                        context.Products.Add(product);
+                    }
+
+                    product.ProductName = txtAd.Text;
+                    product.Barcode = lblBarcode.Text;
+                    product.Description = txtDescription.Text;
+                    product.Stock = int.TryParse(nmrStock.Text, out var stock) ? stock : 0;
+                    product.UnitPrice = decimal.TryParse(nmrUnitPrice.Text, out var price) ? price : 0;
+                    product.Metre = double.TryParse(nmrMetre.Text, out var metre) ? metre : 0;
+                    product.Kilo = double.TryParse(nmrKilo.Text, out var kilo) ? kilo : 0;
+
+                    var validator = new ProductValidator();
+                    var result = validator.Validate(product);
+
+                    if (!result.IsValid)
+                    {
+                        var errorMessage = string.Join("\n", result.Errors.Select(e => e.ErrorMessage));
+                        MessageBox.Show(errorMessage, "Doğrulama Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
 
-                    if (string.IsNullOrWhiteSpace(lblBarcode.Text))
-                    {
-                        MessageBox.Show("Lütfen barkod oluşturun.");
-                        return;
-                    }
-
-                    context.Products.Add(product);
                     context.SaveChanges();
 
-                    MessageBox.Show("Ürün Eklendi");
+                    ProductChanged?.Invoke(this, EventArgs.Empty);
 
-                    ClearForm();
+                    string message = _productId.HasValue ? "Ürün güncellendi!" : "Ürün eklendi!";
+                    MessageBox.Show(message, "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
 
                 }
             }

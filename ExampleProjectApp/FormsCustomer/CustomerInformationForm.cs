@@ -1,12 +1,15 @@
 ﻿using System.Data;
 using ExampleProjectApp.Context;
 using ExampleProjectApp.Entities;
+using ExampleProjectApp.Validations;
 using Microsoft.EntityFrameworkCore;
 
 namespace ExampleProjectApp
 {
     public partial class CustomerInformationForm : Form
     {
+        public event EventHandler? CustomerUpdated;
+
         private readonly int _customerId;
         public CustomerInformationForm(int customerId)
         {
@@ -48,11 +51,21 @@ namespace ExampleProjectApp
                     customer.Phone = txtPhone.Text;
                     customer.TCNo = txtTC.Text;
                     customer.VergiDairesi = txtVergiDairesi.Text;
-                    customer.VergiNo = Convert.ToInt32(txtVergiNo.Text);
+                    customer.VergiNo = txtVergiNo.Text;
 
                     customer.UpdatedDate = DateTime.UtcNow;
 
+                    var validator = new CustomerValidator();
+                    var result = validator.Validate(customer);
+                    if (!result.IsValid)
+                    {
+                        var errorMessage = string.Join("\n", result.Errors.Select(e => e.ErrorMessage));
+                        MessageBox.Show(errorMessage, "Doğrulama Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
                     context.SaveChanges();
+                    CustomerUpdated?.Invoke(this, EventArgs.Empty);
                     MessageBox.Show("Müşteri bilgileri güncellendi.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
@@ -99,7 +112,7 @@ namespace ExampleProjectApp
             using (var context = new AppDbContext())
             {
                 var orders = context.Orders
-                    .Where(o => o.Id == _customerId)
+                    .Where(o => o.CustomerId == _customerId)
                     .Select(o => new
                     {
                         o.Id,

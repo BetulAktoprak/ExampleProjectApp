@@ -1,10 +1,13 @@
 ﻿using ExampleProjectApp.Context;
 using ExampleProjectApp.Entities;
+using ExampleProjectApp.Validations;
 
 namespace ExampleProjectApp
 {
     public partial class AddCustomerForm : Form
     {
+        public event EventHandler? CustomerAdded;
+
         public AddCustomerForm()
         {
             InitializeComponent();
@@ -15,27 +18,23 @@ namespace ExampleProjectApp
             using (var context = new AppDbContext())
             {
 
-                if (!int.TryParse(txtTC.Text, out int tcNo) || !int.TryParse(txtVergiNo.Text, out int vergiNo))
-                {
-                    MessageBox.Show("TC No ve Vergi No sayısal olmalıdır.");
-                    return;
-                }
-
                 var newCustomer = new Customer
                 {
                     FullName = txtFullName.Text,
                     TCNo = txtTC.Text,
                     Phone = txtPhone.Text,
                     Email = txtEmail.Text,
-                    VergiNo = int.Parse(txtVergiNo.Text),
+                    VergiNo = txtVergiNo.Text,
                     VergiDairesi = txtVergiDairesi.Text
                 };
 
-                if (string.IsNullOrWhiteSpace(txtTC.Text) ||
-                    string.IsNullOrWhiteSpace(txtEmail.Text) ||
-                    string.IsNullOrWhiteSpace(txtFullName.Text))
+                var validator = new CustomerValidator();
+                var result = validator.Validate(newCustomer);
+
+                if (!result.IsValid)
                 {
-                    MessageBox.Show("Lütfen tüm zorunlu alanları doldurun.");
+                    var errorMessage = string.Join("\n", result.Errors.Select(e => e.ErrorMessage));
+                    MessageBox.Show(errorMessage, "Doğrulama Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
@@ -43,9 +42,12 @@ namespace ExampleProjectApp
                 context.SaveChanges();
 
                 MessageBox.Show("Kullanıcı başarıyla kaydedildi!");
+                CustomerAdded?.Invoke(this, EventArgs.Empty);
                 CustomerClear();
+               
             }
         }
+
 
         private void CustomerClear()
         {

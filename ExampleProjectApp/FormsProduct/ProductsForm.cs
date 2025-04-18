@@ -41,7 +41,9 @@ namespace ExampleProjectApp
         private void btnCreateProduct_Click(object sender, EventArgs e)
         {
             AddProductForm addProductForm = new AddProductForm();
+            addProductForm.ProductChanged += (s, ev) => ProductList();
             addProductForm.Show();
+
         }
 
         private void btnRefresh_Click(object sender, EventArgs e)
@@ -85,12 +87,20 @@ namespace ExampleProjectApp
 
         private void dgvProductList_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
-            if(e.RowIndex >= 0)
+            if (e.RowIndex >= 0)
             {
                 int productId = Convert.ToInt32(dgvProductList.Rows[e.RowIndex].Cells["Id"].Value);
-                ProductInformationForm productInformationForm = new ProductInformationForm(productId);
-                productInformationForm.Show();
+                AddProductForm updatetForm = new AddProductForm(productId);
+                updatetForm.ProductChanged += (s, ev) => ProductList();
+                updatetForm.Show();
             }
+
+            //if(e.RowIndex >= 0)
+            //{
+            //    int productId = Convert.ToInt32(dgvProductList.Rows[e.RowIndex].Cells["Id"].Value);
+            //    ProductInformationForm productInformationForm = new ProductInformationForm(productId);
+            //    productInformationForm.Show();
+            //}
         }
     }
 }

@@ -6,7 +6,7 @@
         public string TCNo { get; set; } = default!;
         public string Phone { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public int VergiNo { get; set; }
+        public string VergiNo { get; set; } = string.Empty;
         public string VergiDairesi { get; set; } = string.Empty;
         public ICollection<Order>? Orders { get; set; } = new List<Order>();
     }
